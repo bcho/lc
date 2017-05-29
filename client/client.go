@@ -30,7 +30,7 @@ func NewClientAuthFromLogin(email, password string) (ClientAuth, error) {
 		"password": password,
 	}) // should not fail here
 
-	resp, err := http.Post(UrlSignin, "application/json", payload)
+	resp, err := http.Post(UrlSignin(), "application/json", payload)
 	if err != nil {
 		return nil, err
 	}
@@ -51,17 +51,23 @@ func (a clientAuthImpl) PrepareRequest(req *http.Request) error {
 }
 
 // Client represents a LeanCloud dashboard API client.
-type Client struct {
+type Client interface {
+	// Get performs get request to given url.
+	Get(string) (*http.Response, error)
+	// Do performs a HTTP request.
+	Do(*http.Request) (*http.Response, error)
+}
+
+type client struct {
 	Auth ClientAuth
 }
 
 // NewClient creates a API client from client auth.
-func NewClient(a ClientAuth) *Client {
-	return &Client{a}
+func NewClient(a ClientAuth) Client {
+	return &client{a}
 }
 
-// Get performs get request to given url.
-func (c Client) Get(url string) (resp *http.Response, err error) {
+func (c client) Get(url string) (resp *http.Response, err error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -70,8 +76,7 @@ func (c Client) Get(url string) (resp *http.Response, err error) {
 	return c.Do(req)
 }
 
-// Do performs a HTTP request.
-func (c Client) Do(req *http.Request) (*http.Response, error) {
+func (c client) Do(req *http.Request) (*http.Response, error) {
 	if err := c.Auth.PrepareRequest(req); err != nil {
 		return nil, err
 	}
