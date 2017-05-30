@@ -1,6 +1,7 @@
 # L(ean)C(loud)
 
 [![GoDoc](https://godoc.org/github.com/bcho/lc?status.svg)](https://godoc.org/github.com/bcho/lc)
+[![Build Status](https://travis-ci.org/bcho/lc.svg)](https://travis-ci.org/bcho/lc)
 
 Customized LeanCloud (internal) API client.
 
