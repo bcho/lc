@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
+	"io/ioutil"
 	"net/http"
 )
 
@@ -15,6 +17,9 @@ var (
 type ClientAuth interface {
 	// PrepareRequest adds auth settings to given request.
 	PrepareRequest(req *http.Request) error
+
+	// WriteTo serializes a client auth.
+	WriteTo(io.Writer) (int64, error)
 }
 
 type clientAuthImpl struct {
@@ -35,24 +40,52 @@ func NewClientAuthFromLogin(email, password string) (ClientAuth, error) {
 		return nil, err
 	}
 
-	return NewClientFromCookies(resp.Cookies())
+	return NewClientAuthFromCookies(resp.Cookies())
 }
 
-// NewClientFromCookies creates an auth source from cookies.
-func NewClientFromCookies(cookies []*http.Cookie) (ClientAuth, error) {
-	return &clientAuthImpl{cookies}, nil
+// NewClientAuthFromCookies creates an auth source from cookies.
+func NewClientAuthFromCookies(cookies []*http.Cookie) (ClientAuth, error) {
+	a := &clientAuthImpl{cookies: []*http.Cookie{}}
+	for _, cookie := range cookies {
+		a.cookies = append(a.cookies, &http.Cookie{Name: cookie.Name, Value: cookie.Value})
+	}
+	return a, nil
+}
+
+// NewClientAuth creates an auth source from io.Reader.
+func NewClientAuth(r io.Reader) (ClientAuth, error) {
+	var cookies []*http.Cookie
+
+	raw, err := ioutil.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+
+	header := http.Header{}
+	header.Add("Cookie", string(raw))
+	request := http.Request{Header: header}
+	cookies = append(cookies, request.Cookies()...)
+
+	return NewClientAuthFromCookies(cookies)
 }
 
 func (a clientAuthImpl) PrepareRequest(req *http.Request) error {
 	if len(a.cookies) == 0 {
 		return ErrClientAuthNotPrepared
 	}
-
 	for _, c := range a.cookies {
 		req.AddCookie(c)
 	}
 
 	return nil
+}
+
+func (a clientAuthImpl) WriteTo(w io.Writer) (int64, error) {
+	b := new(bytes.Buffer)
+	for _, c := range a.cookies {
+		b.WriteString(c.String() + ";")
+	}
+	return b.WriteTo(w)
 }
 
 // Client represents a LeanCloud dashboard API client.
