@@ -35,7 +35,12 @@ func NewClientAuthFromLogin(email, password string) (ClientAuth, error) {
 		return nil, err
 	}
 
-	return &clientAuthImpl{resp.Cookies()}, nil
+	return NewClientFromCookies(resp.Cookies())
+}
+
+// NewClientFromCookies creates an auth source from cookies.
+func NewClientFromCookies(cookies []*http.Cookie) (ClientAuth, error) {
+	return &clientAuthImpl{cookies}, nil
 }
 
 func (a clientAuthImpl) PrepareRequest(req *http.Request) error {
